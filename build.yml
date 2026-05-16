@@ -1,0 +1,47 @@
+name: Build Miliza OS
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to upload the release
+      
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Generate Timestamp
+        id: time
+        run: echo "TIMESTAMP=$(date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
+
+      - name: Build Raspberry Pi Image (ARM64)
+        uses: pguyot/arm-runner-action@v2
+        env:
+          # Securely injects your download URL into the emulator
+          MILIZA_AARCH64_URL: ${{ secrets.MILIZA_AARCH64_URL }}
+        with:
+          base_image: raspios_lite_arm64:latest
+          bind_mount_repository: true
+          # Make the script executable and run it inside the Pi OS
+          commands: |
+            chmod +x ./rspbios_build.sh
+            ./rspbios_build.sh
+
+      - name: Compress the Image
+        run: |
+          # The action outputs a .img file with a generic name, we rename and compress it
+          IMG_FILE=$(ls *.img | head -n 1)
+          mv "$IMG_FILE" "miliza_${{ env.TIMESTAMP }}.img"
+          gzip -9 "miliza_${{ env.TIMESTAMP }}.img"
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: rspbios_build-${{ env.TIMESTAMP }}
+          name: Miliza OS (Build ${{ env.TIMESTAMP }})
+          files: miliza_${{ env.TIMESTAMP }}.img.gz
+          draft: false
+          prerelease: false
