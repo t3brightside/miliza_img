@@ -240,4 +240,56 @@ EOF
 echo "=> Enabling Services (Will start automatically on physical boot)..."
 systemctl enable caddy avahi-daemon miliza bluetooth bluealsa shairport-sync miliza-firstboot.service
 
+# =========================================================
+# 🔴 TEMPORARY BLIND DEBUGGER (Writes logs to SD card)
+# =========================================================
+echo "=> Baking in the blind debug logger..."
+
+cat << 'EOF' > /usr/local/bin/miliza-debugger.sh
+#!/bin/bash
+# Wait 45 seconds to give the system time to try starting the app and Wi-Fi
+sleep 45 
+
+LOGFILE="/boot/firmware/miliza_debug_log.txt"
+
+echo "=== MILIZA BLIND DEBUG LOG ===" > $LOGFILE
+date >> $LOGFILE
+
+echo -e "\n=== 1. MILIZA APP STATUS ===" >> $LOGFILE
+systemctl status miliza >> $LOGFILE 2>&1
+
+echo -e "\n=== 2. MILIZA APP CRASH LOGS ===" >> $LOGFILE
+journalctl -u miliza --no-pager -n 50 >> $LOGFILE 2>&1
+
+echo -e "\n=== 3. RFKILL (RADIO STATUS) ===" >> $LOGFILE
+rfkill list >> $LOGFILE 2>&1
+
+echo -e "\n=== 4. NETWORK MANAGER STATUS ===" >> $LOGFILE
+nmcli d >> $LOGFILE 2>&1
+nmcli c >> $LOGFILE 2>&1
+
+echo -e "\n=== 5. WI-FI REGULATORY DOMAIN ===" >> $LOGFILE
+iw reg get >> $LOGFILE 2>&1
+
+# Force the file to save immediately
+sync
+EOF
+
+chmod +x /usr/local/bin/miliza-debugger.sh
+
+cat << 'EOF' > /etc/systemd/system/miliza-debugger.service
+[Unit]
+Description=Miliza Blind Debug Logger
+After=network.target miliza.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/miliza-debugger.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable miliza-debugger.service
+
 echo "=> Image Build Complete!"
