@@ -24,6 +24,7 @@ jobs:
           bind_mount_repository: true
           # Make the script executable and run it inside the Pi OS
           # 🟢 FIX: Export the secret directly inside the emulator!
+          image_additional_mb: 6000
           commands: |
             export MILIZA_AARCH64_URL="${{ secrets.MILIZA_AARCH64_URL }}"
             chmod +x ./miliza_pios_build.sh
