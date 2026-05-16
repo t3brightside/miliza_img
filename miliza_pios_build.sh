@@ -20,20 +20,6 @@ echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
 locale-gen
 update-locale LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8
 
-echo "=> Pre-configuring Bluetooth..."
-mkdir -p /etc/bluetooth
-cat << EOF > /etc/bluetooth/main.conf
-[General]
-Name = $BT_DEVICE_NAME
-Class = 0x200404
-DiscoverableTimeout = 0
-ControllerMode = bredr
-
-[Policy]
-AutoEnable=false
-EOF
-
-
 echo "=> Configuring Market-Agnostic Headless Wi-Fi Hotspot..."
 
 # 1. Force NetworkManager to use standard, globally legal channels for the AP
@@ -53,6 +39,18 @@ mkdir -p /var/lib/systemd/rfkill
 echo "0" > /var/lib/systemd/rfkill/platform-3f300000.mmcnr:wlan || true
 echo "0" > /var/lib/systemd/rfkill/platform-soc:wlan || true
 
+echo "=> Pre-configuring Bluetooth..."
+mkdir -p /etc/bluetooth
+cat << EOF > /etc/bluetooth/main.conf
+[General]
+Name = $BT_DEVICE_NAME
+Class = 0x200404
+DiscoverableTimeout = 0
+ControllerMode = bredr
+
+[Policy]
+AutoEnable=false
+EOF
 
 echo "=> Installing System Dependencies..."
 apt-get update
