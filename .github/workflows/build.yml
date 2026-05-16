@@ -22,9 +22,8 @@ jobs:
         with:
           base_image: raspios_lite_arm64:latest
           bind_mount_repository: true
-          # Make the script executable and run it inside the Pi OS
-          # 🟢 FIX: Export the secret directly inside the emulator!
           image_additional_mb: 6000
+          output_image: miliza.img
           commands: |
             export MILIZA_AARCH64_URL="${{ secrets.MILIZA_AARCH64_URL }}"
             chmod +x ./miliza_pios_build.sh
@@ -32,10 +31,9 @@ jobs:
 
       - name: Compress the Image
         run: |
-          # The action outputs a .img file with a generic name, we rename and compress it
-          IMG_FILE=$(ls *.img | head -n 1)
-          mv "$IMG_FILE" "miliza_${{ env.TIMESTAMP }}.img"
-          gzip -9 "miliza_${{ env.TIMESTAMP }}.img"
+          # 🟢 FIX 2: Rename and compress the guaranteed target file
+          mv miliza.img miliza_${{ env.TIMESTAMP }}.img
+          gzip -9 miliza_${{ env.TIMESTAMP }}.img
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v1
