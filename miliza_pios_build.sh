@@ -198,7 +198,7 @@ net.core.wmem_max=2500000
 EOF
 
 mkdir -p /var/www/html
-# 🟢 FIXED: Caddyfile now secures both the standard hostname and the .local mDNS hostname
+# 🟢 FIXED: Caddyfile now secures both hostnames AND forces internal TLS
 cat << EOF > /etc/caddy/Caddyfile
 {
     skip_install_trust
@@ -213,6 +213,7 @@ http://${SYSTEM_HOSTNAME}, http://${SYSTEM_HOSTNAME}.local, :80 {
     handle { reverse_proxy 127.0.0.1:5000 }
 }
 https://${SYSTEM_HOSTNAME}, https://${SYSTEM_HOSTNAME}.local {
+    tls internal
     reverse_proxy 127.0.0.1:5000
 }
 EOF
