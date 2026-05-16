@@ -20,6 +20,11 @@ echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
 locale-gen
 update-locale LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8
 
+# 🟢 ADDED: Debug User for Troubleshooting (miliza / miliza123)
+echo "=> Creating debug user..."
+useradd -m -s /bin/bash -G sudo,video,audio,plugdev,netdev miliza
+echo "miliza:miliza123" | chpasswd
+
 echo "=> Configuring Market-Agnostic Headless Wi-Fi Hotspot..."
 
 # 1. Force NetworkManager to use standard, globally legal channels for the AP
@@ -56,8 +61,9 @@ echo "=> Installing System Dependencies..."
 apt-get update
 apt-get purge -y bluez-alsa-utils || true
 
+# 🟢 ADDED: 'iw' is now explicitly included in the installation list
 apt-get install -y --no-install-recommends \
-    rclone fuse3 network-manager dnsmasq-base iptables \
+    rclone fuse3 network-manager dnsmasq-base iptables iw \
     libbluetooth3 libsbc1 libfreeaptx0 libldacbt-enc2 libldacbt-abr2 libfdk-aac2 \
     libmp3lame0 libmpg123-0 libopus0 \
     libgirepository-2.0-0 gir1.2-glib-2.0 python3-gi \
@@ -143,7 +149,8 @@ EOF
 
 echo "=> Fetching Miliza App binary using secure GitHub Secret..."
 mkdir -p /root/.config/miliza/data
-curl -kL "$MILIZA_AARCH64_URL" -o /usr/local/bin/miliza
+# 🟢 ADDED: -f flag to strictly fail if the binary URL is broken/404
+curl -fkL "$MILIZA_AARCH64_URL" -o /usr/local/bin/miliza
 chmod +x /usr/local/bin/miliza
 
 echo "=> Creating Miliza SystemD Service..."
