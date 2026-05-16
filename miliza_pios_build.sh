@@ -25,32 +25,34 @@ echo "=> Creating debug user..."
 useradd -m -s /bin/bash -G sudo,video,audio,plugdev,netdev miliza
 echo "miliza:miliza123" | chpasswd
 
+# =========================================================
+# 🟢 THE MASTER WI-FI FIX (Fixes the DFS-UNSET Race Condition)
+# =========================================================
 echo "=> Configuring Market-Agnostic Headless Wi-Fi Hotspot..."
 
-# 1. Force NetworkManager to use standard, globally legal channels for the AP
+# 1. Clean, valid NetworkManager configuration
 mkdir -p /etc/NetworkManager/conf.d
-cat << 'EOF' > /etc/NetworkManager/conf.d/10-headless-ap.conf
-[device-global-capabilities]
+cat << 'EOF' > /etc/NetworkManager/conf.d/10-wifi.conf
+[device]
 wifi.backend=wpa_supplicant
-
-[connection-ap]
-# Forces any Access Point profile to stick to globally open, unrestricted 2.4GHz frequencies
-wifi.channel=6
-wifi.band=bg
+wifi.scan-rand-mac-address=no
 EOF
 
-# 2. Tell the kernel's wireless subsystem not to hard-lock the transmitter on boot
+# 2. Force the kernel to unlock Wi-Fi BEFORE NetworkManager even starts
+mkdir -p /etc/systemd/system/NetworkManager.service.d
+cat << 'EOF' > /etc/systemd/system/NetworkManager.service.d/override-wifi.conf
+[Service]
+# Unblock the physical radio
+ExecStartPre=/usr/sbin/rfkill unblock wifi
+# Satisfy the PiOS DFS-UNSET requirement with the global World domain
+ExecStartPre=-/usr/sbin/iw reg set 00
+EOF
+
+# 3. Tell the kernel's wireless subsystem not to hard-lock the transmitter on boot
 mkdir -p /var/lib/systemd/rfkill
 echo "0" > /var/lib/systemd/rfkill/platform-3f300000.mmcnr:wlan || true
 echo "0" > /var/lib/systemd/rfkill/platform-soc:wlan || true
-
-# 🟢 ADDED (STEP 3): Satisfy the PiOS strict boot requirement with the World domain (00)
-mkdir -p /etc/wpa_supplicant
-cat << 'EOF' > /etc/wpa_supplicant/wpa_supplicant.conf
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-update_config=1
-country=00
-EOF
+# =========================================================
 
 echo "=> Pre-configuring Bluetooth..."
 mkdir -p /etc/bluetooth
@@ -69,7 +71,6 @@ echo "=> Installing System Dependencies..."
 apt-get update
 apt-get purge -y bluez-alsa-utils || true
 
-# 🟢 ADDED: 'iw' is now explicitly included in the installation list
 apt-get install -y --no-install-recommends \
     rclone fuse3 network-manager dnsmasq-base iptables iw \
     libbluetooth3 libsbc1 libfreeaptx0 libldacbt-enc2 libldacbt-abr2 libfdk-aac2 \
@@ -157,7 +158,6 @@ EOF
 
 echo "=> Fetching Miliza App binary using secure GitHub Secret..."
 mkdir -p /root/.config/miliza/data
-# 🟢 ADDED: -f flag to strictly fail if the binary URL is broken/404
 curl -fkL "$MILIZA_AARCH64_URL" -o /usr/local/bin/miliza
 chmod +x /usr/local/bin/miliza
 
