@@ -26,7 +26,7 @@ useradd -m -s /bin/bash -G sudo,video,audio,plugdev,netdev miliza
 echo "miliza:miliza123" | chpasswd
 
 # =========================================================
-# 🟢 THE MASTER WI-FI FIX (Fixes the DFS-UNSET Race Condition)
+# 🟢 THE MASTER WI-FI FIX (The "Starter Key")
 # =========================================================
 echo "=> Configuring Market-Agnostic Headless Wi-Fi Hotspot..."
 
@@ -38,17 +38,24 @@ wifi.backend=wpa_supplicant
 wifi.scan-rand-mac-address=no
 EOF
 
-# 2. Force the kernel to unlock Wi-Fi BEFORE NetworkManager even starts
-mkdir -p /etc/systemd/system/NetworkManager.service.d
-cat << 'EOF' > /etc/systemd/system/NetworkManager.service.d/override-wifi.conf
-[Service]
-# Unblock the physical radio
-ExecStartPre=/usr/sbin/rfkill unblock wifi
-# Satisfy the PiOS DFS-UNSET requirement with the global World domain
-ExecStartPre=-/usr/sbin/iw reg set 00
+# 2. Force NetworkManager to use standard, globally legal channels for the AP
+cat << 'EOF' > /etc/NetworkManager/conf.d/10-headless-ap.conf
+[connection-ap]
+wifi.channel=6
+wifi.band=bg
 EOF
 
-# 3. Tell the kernel's wireless subsystem not to hard-lock the transmitter on boot
+# 3. The Broadcom Silicon "Starter Key"
+# The Pi hardware rejects "00" (World). We must use a valid country (GB) to unlock the hardware.
+# This is perfectly safe globally because Channel 6 (above) is universally legal everywhere.
+mkdir -p /etc/wpa_supplicant
+cat << 'EOF' > /etc/wpa_supplicant/wpa_supplicant.conf
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=GB
+EOF
+
+# 4. Tell the kernel's wireless subsystem not to hard-lock the transmitter on boot
 mkdir -p /var/lib/systemd/rfkill
 echo "0" > /var/lib/systemd/rfkill/platform-3f300000.mmcnr:wlan || true
 echo "0" > /var/lib/systemd/rfkill/platform-soc:wlan || true
@@ -71,8 +78,9 @@ echo "=> Installing System Dependencies..."
 apt-get update
 apt-get purge -y bluez-alsa-utils || true
 
+# 🟢 CRITICAL FIX: Explicitly added wpasupplicant & wireless-regdb
 apt-get install -y --no-install-recommends \
-    rclone fuse3 network-manager dnsmasq-base iptables iw \
+    wpasupplicant wireless-regdb rclone fuse3 network-manager dnsmasq-base iptables iw \
     libbluetooth3 libsbc1 libfreeaptx0 libldacbt-enc2 libldacbt-abr2 libfdk-aac2 \
     libmp3lame0 libmpg123-0 libopus0 \
     libgirepository-2.0-0 gir1.2-glib-2.0 python3-gi \
@@ -255,7 +263,6 @@ echo "=> Baking in the blind debug logger..."
 
 cat << 'EOF' > /usr/local/bin/miliza-debugger.sh
 #!/bin/bash
-# Wait 45 seconds to give the system time to try starting the app and Wi-Fi
 sleep 45 
 
 LOGFILE="/boot/firmware/miliza_debug_log.txt"
@@ -279,7 +286,6 @@ nmcli c >> $LOGFILE 2>&1
 echo -e "\n=== 5. WI-FI REGULATORY DOMAIN ===" >> $LOGFILE
 iw reg get >> $LOGFILE 2>&1
 
-# Force the file to save immediately
 sync
 EOF
 
