@@ -33,6 +33,27 @@ ControllerMode = bredr
 AutoEnable=false
 EOF
 
+
+echo "=> Configuring Market-Agnostic Headless Wi-Fi Hotspot..."
+
+# 1. Force NetworkManager to use standard, globally legal channels for the AP
+mkdir -p /etc/NetworkManager/conf.d
+cat << 'EOF' > /etc/NetworkManager/conf.d/10-headless-ap.conf
+[device-global-capabilities]
+wifi.backend=wpa_supplicant
+
+[connection-ap]
+# Forces any Access Point profile to stick to globally open, unrestricted 2.4GHz frequencies
+wifi.channel=6
+wifi.band=bg
+EOF
+
+# 2. Tell the kernel's wireless subsystem not to hard-lock the transmitter on boot
+mkdir -p /var/lib/systemd/rfkill
+echo "0" > /var/lib/systemd/rfkill/platform-3f300000.mmcnr:wlan || true
+echo "0" > /var/lib/systemd/rfkill/platform-soc:wlan || true
+
+
 echo "=> Installing System Dependencies..."
 apt-get update
 apt-get purge -y bluez-alsa-utils || true
