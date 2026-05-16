@@ -198,20 +198,21 @@ net.core.wmem_max=2500000
 EOF
 
 mkdir -p /var/www/html
+# 🟢 FIXED: Caddyfile now secures both the standard hostname and the .local mDNS hostname
 cat << EOF > /etc/caddy/Caddyfile
 {
     skip_install_trust
     auto_https disable_redirects
     pki { ca local { name "${SYSTEM_HOSTNAME} CA" } }
 }
-http://${SYSTEM_HOSTNAME}.local, :80 {
+http://${SYSTEM_HOSTNAME}, http://${SYSTEM_HOSTNAME}.local, :80 {
     handle /${SYSTEM_HOSTNAME}.crt {
         root * /var/www/html
         file_server
     }
     handle { reverse_proxy 127.0.0.1:5000 }
 }
-https://${SYSTEM_HOSTNAME}.local {
+https://${SYSTEM_HOSTNAME}, https://${SYSTEM_HOSTNAME}.local {
     reverse_proxy 127.0.0.1:5000
 }
 EOF
