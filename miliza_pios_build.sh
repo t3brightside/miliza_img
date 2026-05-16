@@ -20,13 +20,12 @@ echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
 locale-gen
 update-locale LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8
 
-# 🟢 ADDED: Debug User for Troubleshooting (miliza / miliza123)
 echo "=> Creating debug user..."
 useradd -m -s /bin/bash -G sudo,video,audio,plugdev,netdev miliza
 echo "miliza:miliza123" | chpasswd
 
 # =========================================================
-# 🟢 THE MASTER WI-FI FIX (The "Starter Key")
+# 🟢 THE MASTER WI-FI FIX (Official PiOS Tooling)
 # =========================================================
 echo "=> Configuring Market-Agnostic Headless Wi-Fi Hotspot..."
 
@@ -45,17 +44,21 @@ wifi.channel=6
 wifi.band=bg
 EOF
 
-# 3. The Broadcom Silicon "Starter Key"
-# The Pi hardware rejects "00" (World). We must use a valid country (GB) to unlock the hardware.
-# This is perfectly safe globally because Channel 6 (above) is universally legal everywhere.
-mkdir -p /etc/wpa_supplicant
-cat << 'EOF' > /etc/wpa_supplicant/wpa_supplicant.conf
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-update_config=1
-country=GB
+# 3. Apply the Official PiOS "Starter Key"
+# This perfectly configures CRDA, rfkill, and wpa_supplicant using PiOS's own internal logic
+raspi-config nonint do_wifi_country GB || true
+echo "REGDOMAIN=GB" > /etc/default/crda
+
+# 4. Force NetworkManager to wake up with Wi-Fi strictly ENABLED
+mkdir -p /var/lib/NetworkManager
+cat << 'EOF' > /var/lib/NetworkManager/NetworkManager.state
+[main]
+NetworkingEnabled=true
+WirelessEnabled=true
+WWANEnabled=true
 EOF
 
-# 4. Tell the kernel's wireless subsystem not to hard-lock the transmitter on boot
+# 5. Tell the kernel's wireless subsystem not to hard-lock the transmitter on boot
 mkdir -p /var/lib/systemd/rfkill
 echo "0" > /var/lib/systemd/rfkill/platform-3f300000.mmcnr:wlan || true
 echo "0" > /var/lib/systemd/rfkill/platform-soc:wlan || true
@@ -78,7 +81,6 @@ echo "=> Installing System Dependencies..."
 apt-get update
 apt-get purge -y bluez-alsa-utils || true
 
-# 🟢 CRITICAL FIX: Explicitly added wpasupplicant & wireless-regdb
 apt-get install -y --no-install-recommends \
     wpasupplicant wireless-regdb rclone fuse3 network-manager dnsmasq-base iptables iw \
     libbluetooth3 libsbc1 libfreeaptx0 libldacbt-enc2 libldacbt-abr2 libfdk-aac2 \
@@ -254,7 +256,7 @@ WantedBy=multi-user.target
 EOF
 
 echo "=> Enabling Services (Will start automatically on physical boot)..."
-systemctl enable caddy avahi-daemon miliza bluetooth bluealsa shairport-sync miliza-firstboot.service
+systemctl enable caddy avahi-daemon miliza bluetooth bluealsa shairport-sync miliza-firstboot.service wpa_supplicant
 
 # =========================================================
 # 🔴 TEMPORARY BLIND DEBUGGER (Writes logs to SD card)
