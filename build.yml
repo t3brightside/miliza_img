@@ -2,7 +2,7 @@ name: Build Miliza OS
 
 on:
   workflow_dispatch:
-  
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,8 +27,8 @@ jobs:
           bind_mount_repository: true
           # Make the script executable and run it inside the Pi OS
           commands: |
-            chmod +x ./rspbios_build.sh
-            ./rspbios_build.sh
+            chmod +x ./miliza_pios_build.sh
+            ./miliza_pios_build.sh
 
       - name: Compress the Image
         run: |
@@ -40,7 +40,7 @@ jobs:
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: rspbios_build-${{ env.TIMESTAMP }}
+          tag_name: miliza_pios_build-${{ env.TIMESTAMP }}
           name: Miliza OS (Build ${{ env.TIMESTAMP }})
           files: miliza_${{ env.TIMESTAMP }}.img.gz
           draft: false
