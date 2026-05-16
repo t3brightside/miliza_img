@@ -1,11 +1,16 @@
 #!/bin/bash
 # ========================================================
-# Miliza OS Image Builder Script (Runs inside GitHub Actions)
+# Miliza OS Image Builder Script (Cloud / Chroot Edition)
+# Fully headless, AAC, Bluetooth, AirPlay, and Native Wi-Fi Setup
 # ========================================================
 set -e
 
+# =========================================================
+# ⚙️ CONFIGURATION BLOCK
+# =========================================================
 SYSTEM_HOSTNAME="miliza"
 BT_DEVICE_NAME="Miliza Hi-Fi"
+# =========================================================
 
 echo "=> Configuring Hostname & Locales..."
 echo "$SYSTEM_HOSTNAME" > /etc/hostname
@@ -32,7 +37,6 @@ echo "=> Installing System Dependencies..."
 apt-get update
 apt-get purge -y bluez-alsa-utils || true
 
-# Install runtime + build dependencies
 apt-get install -y --no-install-recommends \
     rclone fuse3 network-manager dnsmasq-base iptables \
     libbluetooth3 libsbc1 libfreeaptx0 libldacbt-enc2 libldacbt-abr2 libfdk-aac2 \
@@ -152,16 +156,62 @@ cat << EOF > /etc/caddy/Caddyfile
     pki { ca local { name "${SYSTEM_HOSTNAME} CA" } }
 }
 http://${SYSTEM_HOSTNAME}.local, :80 {
+    handle /${SYSTEM_HOSTNAME}.crt {
+        root * /var/www/html
+        file_server
+    }
     handle { reverse_proxy 127.0.0.1:5000 }
 }
 https://${SYSTEM_HOSTNAME}.local {
     reverse_proxy 127.0.0.1:5000
 }
 EOF
+caddy fmt --overwrite /etc/caddy/Caddyfile || true
+
 mkdir -p /etc/NetworkManager/dnsmasq-shared.d
 echo 'address=/#/10.42.0.1' > /etc/NetworkManager/dnsmasq-shared.d/captive.conf
 
-echo "=> Enabling Services (Will start automatically on first physical boot)..."
-systemctl enable caddy avahi-daemon miliza bluetooth bluealsa shairport-sync
+# =========================================================
+# 🟢 FIRST-BOOT CA CERTIFICATE EXTRACTION
+# =========================================================
+echo "=> Baking in a first-boot script for the Caddy CRT..."
+
+cat << EOF > /usr/local/bin/miliza-firstboot.sh
+#!/bin/bash
+ROOT_CRT="/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt"
+
+# Wait for Caddy to generate the cert
+while [ ! -f "\$ROOT_CRT" ]; do
+    sleep 2
+done
+
+# Copy it to the web folder
+cp "\$ROOT_CRT" "/var/www/html/${SYSTEM_HOSTNAME}.crt"
+chown caddy:caddy "/var/www/html/${SYSTEM_HOSTNAME}.crt"
+chmod 644 "/var/www/html/${SYSTEM_HOSTNAME}.crt"
+
+# Self-destruct
+systemctl disable miliza-firstboot.service
+rm -f /etc/systemd/system/miliza-firstboot.service
+rm -f /usr/local/bin/miliza-firstboot.sh
+EOF
+
+chmod +x /usr/local/bin/miliza-firstboot.sh
+
+cat << 'EOF' > /etc/systemd/system/miliza-firstboot.service
+[Unit]
+Description=Miliza First Boot Setup
+After=caddy.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/miliza-firstboot.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "=> Enabling Services (Will start automatically on physical boot)..."
+systemctl enable caddy avahi-daemon miliza bluetooth bluealsa shairport-sync miliza-firstboot.service
 
 echo "=> Image Build Complete!"
