@@ -1,7 +1,7 @@
 #!/bin/bash
 # ========================================================
 # Miliza OS Image Builder Script (Cloud / Chroot Edition)
-# Fully headless, AAC, Bluetooth, AirPlay, and Native Wi-Fi Setup
+# Fully headless, AAC, Bluetooth, AirPlay, Native Wi-Fi, and SSH
 # ========================================================
 set -e
 
@@ -20,6 +20,7 @@ echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
 locale-gen
 update-locale LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8
 
+# 🟢 ADDED: Debug User for Troubleshooting (miliza / miliza123)
 echo "=> Creating debug user..."
 useradd -m -s /bin/bash -G sudo,video,audio,plugdev,netdev miliza
 echo "miliza:miliza123" | chpasswd
@@ -45,7 +46,6 @@ wifi.band=bg
 EOF
 
 # 3. Apply the Official PiOS "Starter Key"
-# This perfectly configures CRDA, rfkill, and wpa_supplicant using PiOS's own internal logic
 raspi-config nonint do_wifi_country GB || true
 echo "REGDOMAIN=GB" > /etc/default/crda
 
@@ -81,8 +81,9 @@ echo "=> Installing System Dependencies..."
 apt-get update
 apt-get purge -y bluez-alsa-utils || true
 
+# 🟢 CRITICAL FIX: Explicitly added openssh-server and sudo
 apt-get install -y --no-install-recommends \
-    wpasupplicant wireless-regdb rclone fuse3 network-manager dnsmasq-base iptables iw \
+    openssh-server sudo wpasupplicant wireless-regdb rclone fuse3 network-manager dnsmasq-base iptables iw \
     libbluetooth3 libsbc1 libfreeaptx0 libldacbt-enc2 libldacbt-abr2 libfdk-aac2 \
     libmp3lame0 libmpg123-0 libopus0 \
     libgirepository-2.0-0 gir1.2-glib-2.0 python3-gi \
@@ -95,6 +96,10 @@ apt-get install -y --no-install-recommends \
     libfdk-aac-dev libfreeaptx-dev libldacbt-enc-dev libldacbt-abr-dev \
     libmp3lame-dev libmpg123-dev libopus-dev libdbus-1-dev \
     smbclient cifs-utils udisks2 id3v2 shairport-sync caddy
+
+# 🟢 ADDED: Grant 'miliza' bulletproof, passwordless sudo access
+echo "miliza ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/010_miliza-nopasswd
+chmod 0440 /etc/sudoers.d/010_miliza-nopasswd
 
 sed -i 's/#user_allow_other/user_allow_other/g' /etc/fuse.conf
 
@@ -255,8 +260,9 @@ ExecStart=/usr/local/bin/miliza-firstboot.sh
 WantedBy=multi-user.target
 EOF
 
+# 🟢 ADDED: 'ssh' is now in the auto-start list
 echo "=> Enabling Services (Will start automatically on physical boot)..."
-systemctl enable caddy avahi-daemon miliza bluetooth bluealsa shairport-sync miliza-firstboot.service wpa_supplicant
+systemctl enable caddy avahi-daemon miliza bluetooth bluealsa shairport-sync miliza-firstboot.service wpa_supplicant ssh
 
 # =========================================================
 # 🔴 TEMPORARY BLIND DEBUGGER (Writes logs to SD card)
