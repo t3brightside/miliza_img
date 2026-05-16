@@ -44,6 +44,14 @@ mkdir -p /var/lib/systemd/rfkill
 echo "0" > /var/lib/systemd/rfkill/platform-3f300000.mmcnr:wlan || true
 echo "0" > /var/lib/systemd/rfkill/platform-soc:wlan || true
 
+# 🟢 ADDED (STEP 3): Satisfy the PiOS strict boot requirement with the World domain (00)
+mkdir -p /etc/wpa_supplicant
+cat << 'EOF' > /etc/wpa_supplicant/wpa_supplicant.conf
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=00
+EOF
+
 echo "=> Pre-configuring Bluetooth..."
 mkdir -p /etc/bluetooth
 cat << EOF > /etc/bluetooth/main.conf
