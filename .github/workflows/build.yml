@@ -15,10 +15,10 @@ jobs:
 
       - name: Generate Timestamp
         id: time
-        run: echo "TIMESTAMP=$(date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
+        # Pure numbers: YYYYMMDDHHMM (e.g., 202605162137)
+        run: echo "TIMESTAMP=$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
 
       - name: Build Raspberry Pi Image (ARM64)
-        # 🟢 ADDED ID: This lets the next step find where the image file lives
         id: build_image 
         uses: pguyot/arm-runner-action@v2
         with:
@@ -32,15 +32,18 @@ jobs:
 
       - name: Compress the Image
         run: |
-          # 🟢 FIX: Move the image from the plugin's output path to our workspace
-          mv "${{ steps.build_image.outputs.image }}" "miliza_${{ env.TIMESTAMP }}.img"
-          gzip -9 "miliza_${{ env.TIMESTAMP }}.img"
+          # Moves and names it: miliza_pios_aarch64_202605162137.img
+          mv "${{ steps.build_image.outputs.image }}" "miliza_pios_aarch64_${{ env.TIMESTAMP }}.img"
+          
+          # Zips it: miliza_pios_aarch64_202605162137.img.gz
+          gzip -9 "miliza_pios_aarch64_${{ env.TIMESTAMP }}.img"
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
           tag_name: miliza_pios_build-${{ env.TIMESTAMP }}
           name: Miliza OS (Build ${{ env.TIMESTAMP }})
-          files: miliza_${{ env.TIMESTAMP }}.img.gz
+          # Exactly matches the zipped file
+          files: miliza_pios_aarch64_${{ env.TIMESTAMP }}.img.gz
           draft: false
           prerelease: false
