@@ -38,12 +38,26 @@ jobs:
           # Zips it: miliza_pios_aarch64_202605162137.img.gz
           gzip -9 "miliza_pios_aarch64_${{ env.TIMESTAMP }}.img"
 
+      - name: Generate latest.json file
+        run: |
+          # Creates a JSON file with the filename and the exact download URL
+          cat <<EOF > latest.json
+          {
+            "version": "${{ env.TIMESTAMP }}",
+            "filename": "miliza_pios_aarch64_${{ env.TIMESTAMP }}.img.gz",
+            "download_url": "https://github.com/${{ github.repository }}/releases/download/miliza_pios_build-${{ env.TIMESTAMP }}/miliza_pios_aarch64_${{ env.TIMESTAMP }}.img.gz"
+          }
+          EOF
+
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
           tag_name: miliza_pios_build-${{ env.TIMESTAMP }}
           name: Miliza OS (Build ${{ env.TIMESTAMP }})
-          # Exactly matches the zipped file
-          files: miliza_pios_aarch64_${{ env.TIMESTAMP }}.img.gz
+          # Added latest.json to the files list using a multi-line pipe (|)
+          files: |
+            miliza_pios_aarch64_${{ env.TIMESTAMP }}.img.gz
+            latest.json
           draft: false
           prerelease: false
+          make_latest: true # Explicitly marks this as the latest release
