@@ -183,9 +183,11 @@ Description=Miliza App
 After=network.target bluetooth.target dbus.service
 
 [Service]
-ExecStart=/usr/bin/chrt -f 50 /usr/local/bin/miliza
+ExecStart=/usr/local/bin/miliza
 Restart=always
 User=root
+Nice=-15
+LimitMEMLOCK=infinity
 
 [Install]
 WantedBy=multi-user.target
